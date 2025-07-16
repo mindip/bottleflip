@@ -16,6 +16,7 @@ class FloatingObjectViewController: UIViewController {
     var cameraNode: SCNNode!
     var floatingObject: SCNNode!
     var shadowPlane: SCNNode!
+    var waterNode: SCNNode!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,6 +34,10 @@ class FloatingObjectViewController: UIViewController {
         sceneView.allowsCameraControl = false // Disable user camera control
         sceneView.showsStatistics = false // Hide debug info
         view.addSubview(sceneView)
+        
+        // Add tap gesture for flipping bottle
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        sceneView.addGestureRecognizer(tapGesture)
     }
     
     func setupScene() {
@@ -138,6 +143,112 @@ class FloatingObjectViewController: UIViewController {
         floatingObject.scale = SCNVector3(scaleFactorForHeight, scaleFactorForHeight, scaleFactorForHeight)
         
         scene.rootNode.addChildNode(floatingObject)
+        
+        // Add water inside the bottle
+        addWaterToBottle()
+    }
+    
+    func addWaterToBottle() {
+        // Get the bottle's bounding box to understand its dimensions
+        let (bottleMin, bottleMax) = floatingObject.boundingBox
+        let bottleWidth = bottleMax.x - bottleMin.x
+        let bottleHeight = bottleMax.y - bottleMin.y
+        
+        print("Bottle dimensions: width=\(bottleWidth), height=\(bottleHeight)")
+        
+        // Size water relative to bottle dimensions
+        let waterRadius = bottleWidth * 0.3 // 30% of bottle width
+        let waterHeight = bottleHeight * 0.4 // 40% of bottle height (partially filled)
+        
+        print("Water dimensions: radius=\(waterRadius), height=\(waterHeight)")
+        
+        let waterGeometry = SCNCylinder(radius: CGFloat(waterRadius), height: CGFloat(waterHeight))
+        let waterNode = SCNNode(geometry: waterGeometry)
+        
+        // Water material with transparency
+        let waterMaterial = SCNMaterial()
+        waterMaterial.diffuse.contents = UIColor(red: 0.2, green: 0.8, blue: 1.0, alpha: 0.9)
+        waterMaterial.transparency = 0.3
+        waterMaterial.isDoubleSided = true
+        waterMaterial.fresnelExponent = 1.5
+        
+        waterGeometry.materials = [waterMaterial]
+        
+        // Position water relative to bottle dimensions
+        // Place it in bottom third of bottle
+        let waterYOffset = bottleMin.y + (waterHeight / 2) + (bottleHeight * 0.1) // 10% from bottom
+        waterNode.position = SCNVector3(0, waterYOffset, 0)
+        
+        print("Water positioned at: \(waterNode.position)")
+        
+        // Give water a name for debugging
+        waterNode.name = "water"
+        
+        // Add to bottle
+        floatingObject.addChildNode(waterNode)
+        
+        // Store reference for game logic
+        self.waterNode = waterNode
+    }
+    
+
+    @objc func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
+        print("Tap detected!") // Debug
+        
+        let location = gestureRecognizer.location(in: sceneView)
+        let hitResults = sceneView.hitTest(location, options: [:])
+        
+        print("Hit results count: \(hitResults.count)") // Debug
+        
+        if let hitResult = hitResults.first {
+            print("Hit node: \(hitResult.node)") // Debug
+            print("Hit node name: \(hitResult.node.name ?? "no name")") // Debug
+            print("Floating object: \(floatingObject!)") // Debug
+            print("Water node: \(waterNode!)") // Debug
+            
+            // Check if we hit the bottle or any of its children (including water)
+            // Need to check if hit node is descendant of bottle
+            var currentNode = hitResult.node
+            var isBottleOrChild = false
+            
+            // Walk up the node hierarchy to see if we hit bottle or its children
+            while currentNode.parent != nil {
+                if currentNode == floatingObject || currentNode == waterNode {
+                    isBottleOrChild = true
+                    break
+                }
+                currentNode = currentNode.parent!
+            }
+            
+            // Also check if we hit the bottle directly
+            if hitResult.node == floatingObject || hitResult.node == waterNode {
+                isBottleOrChild = true
+            }
+            
+            if isBottleOrChild {
+                print("Flipping bottle!") // Debug
+                
+                // Create jump animation - move up then down
+                let jumpUp = SCNAction.moveBy(x: 0, y: 3.0, z: 0, duration: 0.3)
+                
+                let jumpDown = SCNAction.moveBy(x: 0, y: -3.0, z: 0, duration: 0.5)
+                jumpDown.timingMode = .easeIn
+                
+                // Create flip animation with delay
+                let delay = SCNAction.wait(duration: 0.07)
+                let flip = SCNAction.rotateBy(x: -2*CGFloat.pi, y: 0, z: 0, duration: 0.7)
+                flip.timingMode = .easeInEaseOut
+                let delayedFlip = SCNAction.sequence([delay, flip])
+                
+                // Run jump and delayed flip simultaneously
+                let jumpSequence = SCNAction.sequence([jumpUp, jumpDown])
+                let combinedAction = SCNAction.group([jumpSequence, delayedFlip])
+                
+                floatingObject.runAction(combinedAction)
+            }
+        } else {
+            print("No hits detected") // Debug
+        }
     }
 
     func createFallbackObject() {
