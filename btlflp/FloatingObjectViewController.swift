@@ -24,7 +24,6 @@ class FloatingObjectViewController: UIViewController {
         setupCamera()
         setupLighting()
         createFloatingObject()
-        createShadowPlane()
     }
     
     func setupSceneView() {
@@ -103,67 +102,63 @@ class FloatingObjectViewController: UIViewController {
     }
     
     func createFloatingObject() {
-        // Create a crystal-like floating object
+        // Load the Fiji water bottle USDZ model
+        guard let modelScene = SCNScene(named: "art.scnassets/Fiji_Water_Bottle.usdz") else {
+            print("Could not load Fiji water bottle model")
+            // Fallback to cylinder if model fails to load
+            createFallbackObject()
+            return
+        }
+        
+        print("✅ Successfully loaded Fiji water bottle model")
+        
+        // Get the root node or first child node
+        floatingObject = modelScene.rootNode.childNodes.first ?? modelScene.rootNode
+        
+        // Debug: Print model info
+        print("Model children count: \(modelScene.rootNode.childNodes.count)")
+        print("FloatingObject node: \(floatingObject)")
+        
+        // Get the bounding box to understand the model's size
+        let (min, max) = floatingObject.boundingBox
+        print("Model bounding box: min=\(min), max=\(max)")
+        
+        // Position object close to camera - positive Z moves toward viewer
+        floatingObject.position = SCNVector3(0, -3, 3)
+        
+        // Try different scales based on bounding box
+        let modelHeight = max.y - min.y
+        let modelWidth = max.x - min.x
+        print("Model dimensions: height=\(modelHeight), width=\(modelWidth)")
+        
+        let targetHeight: Float = 2.0
+        let scaleFactorForHeight = targetHeight / modelHeight
+        print("Calculated scale factor: \(scaleFactorForHeight)")
+        
+        floatingObject.scale = SCNVector3(scaleFactorForHeight, scaleFactorForHeight, scaleFactorForHeight)
+        
+        scene.rootNode.addChildNode(floatingObject)
+    }
+
+    func createFallbackObject() {
+        // Fallback crystal object if model loading fails
         let geometry = SCNCylinder(radius: 0.8, height: 2.0)
-        geometry.radialSegmentCount = 8 // Octagonal for crystal look
-        
+        geometry.radialSegmentCount = 8
+
         floatingObject = SCNNode(geometry: geometry)
-        
-        // Create material with crystal-like properties
+
         let material = SCNMaterial()
         material.diffuse.contents = UIColor(red: 0.3, green: 0.7, blue: 0.9, alpha: 1.0)
         material.specular.contents = UIColor.white
         material.shininess = 100
         material.metalness.contents = 0.3
         material.roughness.contents = 0.1
-        
-        // Add subtle emission for magical glow
         material.emission.contents = UIColor(red: 0.1, green: 0.2, blue: 0.3, alpha: 1.0)
         
         geometry.materials = [material]
-        
-        // Position object to appear floating above screen
         floatingObject.position = SCNVector3(0, 1.5, 0)
         
         scene.rootNode.addChildNode(floatingObject)
-        
-        // Add particle system for magical effect
-        addParticleSystem()
-    }
-    
-    func addParticleSystem() {
-        let particleSystem = SCNParticleSystem()
-        particleSystem.particleColor = UIColor(red: 0.4, green: 0.8, blue: 1.0, alpha: 0.8)
-        particleSystem.particleSize = 0.05
-        particleSystem.birthRate = 20
-        particleSystem.particleLifeSpan = 2.0
-        particleSystem.emissionDuration = 0
-        particleSystem.spreadingAngle = 45
-        particleSystem.particleVelocity = 0.5
-        particleSystem.particleVelocityVariation = 0.2
-        
-        // Attach particles to the floating object
-        floatingObject.addParticleSystem(particleSystem)
-    }
-    
-    func createShadowPlane() {
-        // Create a plane to represent the phone screen surface
-        let planeGeometry = SCNPlane(width: 6, height: 10)
-        shadowPlane = SCNNode(geometry: planeGeometry)
-        
-        // Create shadow material
-        let shadowMaterial = SCNMaterial()
-        shadowMaterial.diffuse.contents = UIColor(white: 0.1, alpha: 0.3)
-        shadowMaterial.isDoubleSided = true
-        shadowMaterial.transparency = 0.3
-        
-        planeGeometry.materials = [shadowMaterial]
-        
-        // Position plane below the floating object
-        shadowPlane.position = SCNVector3(0, -2.5, 0)
-        shadowPlane.eulerAngles = SCNVector3(-Float.pi/2, 0, 0) // Rotate to lie flat
-        
-        scene.rootNode.addChildNode(shadowPlane)
     }
     
     override func viewWillAppear(_ animated: Bool) {
