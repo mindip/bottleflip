@@ -207,7 +207,8 @@ class FloatingObjectViewController: UIViewController {
         self.waterNode = waterNode
     }
     
-
+// MARK - Gesture Recognizers
+    
     @objc func handleTap(_ gestureRecognizer: UITapGestureRecognizer) {
         print("Tap detected!") // Debug
         
@@ -245,16 +246,29 @@ class FloatingObjectViewController: UIViewController {
         switch gestureRecognizer.state {
         case .began:
             if !isBottleOrChild(location) {
-                break
+                gestureRecognizer.state = .failed
+                return
             }
-        case .changed:
-            // Convert 2D screen coordinates to 3D world coordinates
-            // Project the touch location onto the bottle's current Z plane
-            let currentZ = floatingObject.position.z
-            let worldPos = sceneView.unprojectPoint(SCNVector3(Float(location.x), Float(location.y), currentZ))
+            print("Pan began - bottle grabbed")
             
-            // Update bottle position to follow finger
-            floatingObject.position = SCNVector3(worldPos.x, worldPos.y, currentZ)
+        case .changed:
+            // Get the translation from the start of the pan
+            let translation = gestureRecognizer.translation(in: sceneView)
+            
+            let scaleFactor: Float = 0.01
+            
+            let deltaX = Float(translation.x) * scaleFactor
+            let deltaY = Float(-translation.y) * scaleFactor // Negative Y to match screen coordinates
+            
+            // Apply translation to bottle's current position
+            floatingObject.position = SCNVector3(
+                floatingObject.position.x + deltaX,
+                floatingObject.position.y + deltaY,
+                floatingObject.position.z
+            )
+            
+            // Reset translation so we get incremental movement
+            gestureRecognizer.setTranslation(CGPoint.zero, in: sceneView)
             
         case .ended, .cancelled:
             print("Pan ended")
