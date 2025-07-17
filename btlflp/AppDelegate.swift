@@ -57,20 +57,3 @@ extension FloatingObjectViewController {
         // Log frame drops or adjust quality dynamically
     }
 }
-
-// MARK: - Project Setup Instructions
-/*
-1. Create new iOS project in Xcode
-2. Set minimum iOS version to 13.0+ for best SceneKit support
-3. Add SceneKit framework to your project
-4. Replace default view controller with FloatingObjectViewController
-5. Configure Info.plist as shown above
-6. Test on physical device (iPhone 12 or newer recommended)
-7. For App Store: Add app icons, privacy descriptions, etc.
-
-Key Project Settings:
-- Target: iOS 13.0+
-- Orientation: Portrait only
-- Frameworks: SceneKit, UIKit
-- Capabilities: None required (unless adding AR later)
-*/

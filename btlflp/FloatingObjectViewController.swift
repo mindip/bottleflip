@@ -38,6 +38,13 @@ class FloatingObjectViewController: UIViewController {
         // Add tap gesture for flipping bottle
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         sceneView.addGestureRecognizer(tapGesture)
+        
+        // Add pan gesture for dragging bottle
+        let panGesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
+        sceneView.addGestureRecognizer(panGesture)
+        
+        // Allow both gestures to work together
+        tapGesture.require(toFail: panGesture)
     }
     
     func setupScene() {
@@ -205,36 +212,8 @@ class FloatingObjectViewController: UIViewController {
         print("Tap detected!") // Debug
         
         let location = gestureRecognizer.location(in: sceneView)
-        let hitResults = sceneView.hitTest(location, options: [:])
-        
-        print("Hit results count: \(hitResults.count)") // Debug
-        
-        if let hitResult = hitResults.first {
-            print("Hit node: \(hitResult.node)") // Debug
-            print("Hit node name: \(hitResult.node.name ?? "no name")") // Debug
-            print("Floating object: \(floatingObject!)") // Debug
-            print("Water node: \(waterNode!)") // Debug
             
-            // Check if we hit the bottle or any of its children (including water)
-            // Need to check if hit node is descendant of bottle
-            var currentNode = hitResult.node
-            var isBottleOrChild = false
-            
-            // Walk up the node hierarchy to see if we hit bottle or its children
-            while currentNode.parent != nil {
-                if currentNode == floatingObject || currentNode == waterNode {
-                    isBottleOrChild = true
-                    break
-                }
-                currentNode = currentNode.parent!
-            }
-            
-            // Also check if we hit the bottle directly
-            if hitResult.node == floatingObject || hitResult.node == waterNode {
-                isBottleOrChild = true
-            }
-            
-            if isBottleOrChild {
+            if isBottleOrChild(location) {
                 print("Flipping bottle!") // Debug
                 
                 // Create jump animation - move up then down
@@ -255,9 +234,59 @@ class FloatingObjectViewController: UIViewController {
                 
                 floatingObject.runAction(combinedAction)
             }
-        } else {
+        else {
             print("No hits detected") // Debug
         }
+    }
+    
+    @objc func handlePan(_ gestureRecognizer: UIPanGestureRecognizer) {
+        let location = gestureRecognizer.location(in: sceneView)
+        
+        switch gestureRecognizer.state {
+        case .began:
+            if !isBottleOrChild(location) {
+                break
+            }
+        case .changed:
+            // Convert 2D screen coordinates to 3D world coordinates
+            // Project the touch location onto the bottle's current Z plane
+            let currentZ = floatingObject.position.z
+            let worldPos = sceneView.unprojectPoint(SCNVector3(Float(location.x), Float(location.y), currentZ))
+            
+            // Update bottle position to follow finger
+            floatingObject.position = SCNVector3(worldPos.x, worldPos.y, currentZ)
+            
+        case .ended, .cancelled:
+            print("Pan ended")
+            
+        default:
+            break
+        }
+    }
+    
+    func isBottleOrChild(_ location: CGPoint) -> Bool {
+        print("Pan began at: \(location)")
+        // Check if we're touching the bottle
+        let hitResults = sceneView.hitTest(location, options: [:])
+        if let hitResult = hitResults.first {
+            var currentNode = hitResult.node
+            var isBottleOrChild = false
+            
+            // Check if we hit the bottle or its children
+            while currentNode.parent != nil {
+                if currentNode == floatingObject || currentNode == waterNode {
+                    isBottleOrChild = true
+                    break
+                }
+                currentNode = currentNode.parent!
+            }
+            
+            if hitResult.node == floatingObject || hitResult.node == waterNode {
+                isBottleOrChild = true
+            }
+            return isBottleOrChild
+        }
+        return false
     }
 
     func createFallbackObject() {
