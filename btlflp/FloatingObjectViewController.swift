@@ -45,7 +45,16 @@ class FloatingObjectViewController: UIViewController {
         sceneView.scene = scene
         
         // Set up environment for better lighting
-        scene.background.contents = UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0)
+        // Load background image
+        scene.background.contents = UIImage(named: "ripped_bg")
+        
+        // Fallback to color if image not found
+        if scene.background.contents == nil {
+            print("⚠️ Could not load ripped_bg image, using color fallback")
+            scene.background.contents = UIColor(red: 0.05, green: 0.05, blue: 0.1, alpha: 1.0)
+        } else {
+            print("✅ Successfully loaded ripped_bg background")
+        }
         
         // Add subtle fog for depth perception
         scene.fogStartDistance = 5
